@@ -1,29 +1,46 @@
 import streamlit as st
-from tensorflow.keras.models import load_model
-from PIL import Image
+from keras.models import load_model
+from keras.utils import custom_object_scope
 import numpy as np
+from PIL import Image
 
-# Load the model
-model = load_model('teeth_model.h5')
+# Define or import your custom layer
+class CustomScaleLayer(Layer):
+    def __init__(self, scale_factor=1.0, **kwargs):
+        super(CustomScaleLayer, self).__init__(**kwargs)
+        self.scale_factor = scale_factor
 
-# Streamlit App
+    def call(self, inputs):
+        return inputs * self.scale_factor
+
+    def get_config(self):
+        config = super(CustomScaleLayer, self).get_config()
+        config.update({"scale_factor": self.scale_factor})
+        return config
+
+# Load model with custom objects
+with custom_object_scope({'CustomScaleLayer': CustomScaleLayer}):
+    model = load_model('teeth_model.h5')
+
+# Streamlit app
 st.title('Teeth Disease Classification')
 
-# Upload an image
-uploaded_file = st.file_uploader("Choose a teeth image...", type="jpg")
+uploaded_file = st.file_uploader("Choose an image...", type="jpg")
 
 if uploaded_file is not None:
-    # Open and display the image
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded Image.', use_column_width=True)
+    try:
+        # Load and preprocess image
+        image = Image.open(uploaded_file)
+        image = image.resize((256, 256))
+        image_array = np.array(image)
+        image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
 
-    # Preprocess the image
-    image = image.resize((256, 256))
-    image = np.array(image)
-    image = image / 255.0  # normalize
-    image = np.expand_dims(image, axis=0)  # add batch dimension
+        # Predict
+        prediction = model.predict(image_array)
+        class_index = np.argmax(prediction[0])
 
-    # Make a prediction
-    predictions = model.predict(image)
-    class_names = ['Disease 1', 'Disease 2', 'Disease 3', 'Disease 4', 'Disease 5', 'Disease 6', 'Disease 7']
-    st.write("Prediction: ", class_names[np.argmax(predictions)])
+        # Display result
+        st.image(image, caption='Uploaded Image.', use_column_width=True)
+        st.write(f'Predicted class index: {class_index}')
+    except Exception as e:
+        st.error(f"Error processing image: {e}")
