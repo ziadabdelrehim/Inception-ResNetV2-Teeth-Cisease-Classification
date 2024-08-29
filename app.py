@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 
 # Load the model
-model = load_model('my_model.h5')
+model = load_model('teeth_model.h5')
 
 # Streamlit App
 st.title('Teeth Disease Classification')
